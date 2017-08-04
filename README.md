@@ -21,6 +21,7 @@ Run the following command to run the project:
 ```
 python main.py
 ```
+**Note** If running this in Jupyter Notebook system messages, such as those regarding test status, may appear in the terminal rather than the notebook.
 
 ### Submission
 1. Ensure you've passed all the unit tests.
