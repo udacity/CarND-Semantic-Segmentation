@@ -1,6 +1,5 @@
 import os.path
 import tensorflow as tf
-import numpy as np
 import helper
 import warnings
 from distutils.version import LooseVersion
@@ -67,28 +66,26 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     kernel_initializer = tf.truncated_normal_initializer(stddev=0.01)
 
     # Encoder
-    encoder_output = tf.layers.conv2d(vgg_layer7_out, 4096, kernel_size=(1,1), strides=(1, 1))
-#    encoder_output = tf.layers.conv2d(vgg_layer7_out, 4096, kernel_size=(1,1), strides=(1, 1),
-#                                      kernel_initializer=kernel_initializer)        # (5x18x4096)
+    encoder_output = tf.layers.conv2d(vgg_layer7_out, 4096, kernel_size=(1,1), strides=(1, 1),
+                                      kernel_initializer=kernel_initializer)        # (5x18x4096)
 
     # Decoder
-#    decoder1 = tf.layers.conv2d_transpose(encoder_output, 512, kernel_size=(2,2), strides=(2,2),
-#                                          kernel_initializer=kernel_initializer)    # (10x36x512)
-#    decoder2 = tf.layers.conv2d_transpose(decoder1, 512, kernel_size=(2,2), strides=(2,2),
-#                                          kernel_initializer=kernel_initializer)    # (20x72x512)
-#    decoder2 = tf.add(decoder2, vgg_layer4_out)
-#    decoder3 = tf.layers.conv2d_transpose(decoder2, 256, kernel_size=(2,2), strides=(2,2),
-#                                          kernel_initializer=kernel_initializer)    # (40x144x256)
-#    decoder3 = tf.add(decoder3, vgg_layer3_out)
-#    decoder4 = tf.layers.conv2d_transpose(decoder3, 128, kernel_size=(2,2), strides=(2,2),
-#                                          kernel_initializer=kernel_initializer)    # (80x288x128)
-#    decoder5 = tf.layers.conv2d_transpose(decoder4, 64, kernel_size=(2,2), strides=(2,2),
-#                                          kernel_initializer=kernel_initializer)    # (160x576x64)
-#    decoder6 = tf.layers.conv2d_transpose(decoder5, num_classes, kernel_size=(1,1), strides=(1,1),
-#                                          kernel_initializer=kernel_initializer)    # (160x576xnum_classes)
-#    decoder7 = tf.layers.conv2d_transpose(decoder6, num_classes, kernel_size=(1,1), strides=(1,1),
-#                                          kernel_initializer=kernel_initializer)
-    decoder7 = tf.layers.conv2d_transpose(encoder_output, num_classes, kernel_size=(1,1), strides=(1,1))
+    decoder1 = tf.layers.conv2d_transpose(encoder_output, 512, kernel_size=(2,2), strides=(2,2),
+                                          kernel_initializer=kernel_initializer)    # (10x36x512)
+    decoder2 = tf.layers.conv2d_transpose(decoder1, 512, kernel_size=(2,2), strides=(2,2),
+                                          kernel_initializer=kernel_initializer)    # (20x72x512)
+    decoder2 = tf.add(decoder2, vgg_layer4_out)
+    decoder3 = tf.layers.conv2d_transpose(decoder2, 256, kernel_size=(2,2), strides=(2,2),
+                                          kernel_initializer=kernel_initializer)    # (40x144x256)
+    decoder3 = tf.add(decoder3, vgg_layer3_out)
+    decoder4 = tf.layers.conv2d_transpose(decoder3, 128, kernel_size=(2,2), strides=(2,2),
+                                          kernel_initializer=kernel_initializer)    # (80x288x128)
+    decoder5 = tf.layers.conv2d_transpose(decoder4, 64, kernel_size=(2,2), strides=(2,2),
+                                          kernel_initializer=kernel_initializer)    # (160x576x64)
+    decoder6 = tf.layers.conv2d_transpose(decoder5, num_classes, kernel_size=(1,1), strides=(1,1),
+                                          kernel_initializer=kernel_initializer)    # (160x576xnum_classes)
+    decoder7 = tf.layers.conv2d_transpose(decoder6, num_classes, kernel_size=(1,1), strides=(1,1),
+                                          kernel_initializer=kernel_initializer)
 
     return decoder7
 tests.test_layers(layers)
@@ -139,7 +136,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     for epoch in range(epochs):
         gen = get_batches_fn(batch_size)
         for images, gt_images in gen:
-#            sess.run(train_op, feed_dict={input_image: images, correct_label: gt_images, keep_prob: kp, learning_rate: lr})
+
             _, loss = sess.run([train_op, cross_entropy_loss],
                                feed_dict={input_image: images,
                                           correct_label: gt_images,
@@ -149,9 +146,6 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
             print('Epoch {}: loss = {}'.format(epoch, loss))
 
 tests.test_train_nn(train_nn)
-
-###TEST ZONE
-
 
 
 def run():
@@ -166,8 +160,7 @@ def run():
 
     # Variables
     num_classes = 2          # classes: road, not road
-#    image_shape = (160, 576)
-    image_shape = (40, 144)
+    image_shape = (160, 576)
     data_dir = './data'
     runs_dir = './runs'
     tests.test_for_kitti_dataset(data_dir)
@@ -179,16 +172,9 @@ def run():
     # You'll need a GPU with at least 10 teraFLOPS to train on.
     #  https://www.cityscapes-dataset.com/
 
-### TEST ZONE
-    
-
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         #sess.run(tf.local_variables_initializer())
-
-###     TEST ZONE
-        
-
 
         # Path to vgg model
         vgg_path = os.path.join(data_dir, 'vgg')
