@@ -1,10 +1,13 @@
 import time
+import datetime
 import os.path
 import tensorflow as tf
 import warnings
 from distutils.version import LooseVersion
+
 import helper
 import project_tests as tests
+import config
 
 
 # Check TensorFlow Version
@@ -138,10 +141,18 @@ tests.test_train_nn(train_nn)
 
 
 def run():
-    num_classes = 2
-    image_shape = (160, 576)
-    data_dir = './data'
-    runs_dir = './runs'
+    # num_classes = 2
+    # image_shape = (160, 576)
+    # data_dir = './data'
+    # runs_dir = './runs'
+    # model_dir = './model'
+
+    num_classes = config.training_options["num_class"]
+    image_shape = config.training_options["image_shape"]
+    data_dir = config.data_paths["data_dir"]
+    runs_dir = config.data_paths["runs_dir"]
+    model_dir = config.data_paths["model_dir"]
+
     epochs = 1
     batch_size = 10
 
@@ -150,6 +161,12 @@ def run():
 
     # Download pretrained vgg model
     helper.maybe_download_pretrained_vgg(data_dir)
+
+    # Save model
+    if not os.path.exists(model_dir):
+        os.mkdir(model_dir)
+
+    model_save_path = os.path.join(model_dir, str(datetime.datetime.now()).replace(' ', '-'))
 
     # OPTIONAL: Train and Inference on the cityscapes dataset instead of the Kitti dataset.
     # You'll need a GPU with at least 10 teraFLOPS to train on.
@@ -172,6 +189,8 @@ def run():
         layer_output = layers(layer3_out, layer4_out, layer7_out, num_classes)
         logits, train_op, loss = optimize(layer_output, correct_label, learning_rate, num_classes)
 
+        saver = tf.train.Saver()
+
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
 
@@ -180,7 +199,9 @@ def run():
                  input_image, correct_label, keep_prob, learning_rate)
 
         # TODO: Save inference data using helper.save_inference_samples
-        #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+
+        saver.save(sess, model_save_path)
 
         # OPTIONAL: Apply the trained model to a video
 
