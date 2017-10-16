@@ -1,8 +1,9 @@
+import time
 import os.path
 import tensorflow as tf
-import helper
 import warnings
 from distutils.version import LooseVersion
+import helper
 import project_tests as tests
 
 
@@ -87,9 +88,14 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :param num_classes: Number of classes to classify
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
-    # TODO: Implement function
-    logits = tf.reshape(input, (-1, num_classes))
-    return None, None, None
+    # Implement function
+    logits = tf.reshape(nn_last_layer, (-1, num_classes))
+    labels = tf.reshape(correct_label, (-1, num_classes))
+
+    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels))
+    train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
+
+    return logits, train_op, loss
 tests.test_optimize(optimize)
 
 
@@ -110,11 +116,24 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     """
     # TODO: Implement function
 
-    for epoch in epochs:
+    for epoch in range(0, epochs):
+
+        total_training_loss = 0
+
         for image, label in get_batches_fn(batch_size):
-            # training
-            pass
-    pass
+            start = time.time()
+
+            _, loss = sess.run([train_op, cross_entropy_loss],
+                                             feed_dict={input_image: image, correct_label: label,
+                                                        keep_prob: 0.5, learning_rate: 0.001})
+
+            total_training_loss += loss
+            end = time.time()
+            print("elapsed time:{0}".format(end - start))
+
+        message = "epoch:{}, total_training_loss:{}".format(epoch+1, total_training_loss)
+        print(message)
+
 tests.test_train_nn(train_nn)
 
 
@@ -123,6 +142,8 @@ def run():
     image_shape = (160, 576)
     data_dir = './data'
     runs_dir = './runs'
+    epochs = 1
+    batch_size = 10
 
     # check for dataset
     tests.test_for_kitti_dataset(data_dir)
@@ -139,15 +160,24 @@ def run():
         vgg_path = os.path.join(data_dir, 'vgg')
         # Create function to get batches
         get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape)
+        correct_label = tf.placeholder(tf.int32, (None, image_shape[0], image_shape[1], num_classes))
+        learning_rate = tf.placeholder(tf.float32, None)
 
         # OPTIONAL: Augment Images for better results
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
 
-        # TODO: Build NN using load_vgg, layers, and optimize function
+        # Build NN using load_vgg, layers, and optimize function
         input_image, keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(sess, vgg_path)
+
         layer_output = layers(layer3_out, layer4_out, layer7_out, num_classes)
+        logits, train_op, loss = optimize(layer_output, correct_label, learning_rate, num_classes)
+
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
 
         # TODO: Train NN using the train_nn function
+        train_nn(sess, epochs, batch_size, get_batches_fn, train_op, loss,
+                 input_image, correct_label, keep_prob, learning_rate)
 
         # TODO: Save inference data using helper.save_inference_samples
         #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
