@@ -24,30 +24,57 @@ def load_vgg(sess, vgg_path):
     :param vgg_path: Path to vgg folder, containing "variables/" and "saved_model.pb"
     :return: Tuple of Tensors from VGG model (image_input, keep_prob, layer3_out, layer4_out, layer7_out)
     """
-    # TODO: Implement function
-    #   Use tf.saved_model.loader.load to load the model and weights
     vgg_tag = 'vgg16'
     vgg_input_tensor_name = 'image_input:0'
     vgg_keep_prob_tensor_name = 'keep_prob:0'
     vgg_layer3_out_tensor_name = 'layer3_out:0'
     vgg_layer4_out_tensor_name = 'layer4_out:0'
     vgg_layer7_out_tensor_name = 'layer7_out:0'
-    
-    return None, None, None, None, None
+
+    # Use tf.saved_model.loader.load to load the model and weights
+    tf.saved_model.loader.load(sess, [vgg_tag], vgg_path)
+    graph = tf.get_default_graph()
+    input_tensor = graph.get_tensor_by_name(vgg_input_tensor_name)
+    keep_prob = graph.get_tensor_by_name(vgg_keep_prob_tensor_name)
+    layer3 = graph.get_tensor_by_name(vgg_layer3_out_tensor_name)
+    layer4 = graph.get_tensor_by_name(vgg_layer4_out_tensor_name)
+    layer7 = graph.get_tensor_by_name(vgg_layer7_out_tensor_name)
+
+    return input_tensor, keep_prob, layer3, layer4, layer7
 tests.test_load_vgg(load_vgg, tf)
+
+
+def conv2d(input, filters, kernel_size, strides):
+    return tf.layers.conv2d(input, filters, kernel_size=kernel_size, strides=strides,
+                            padding='SAME', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+
+def conv2d_transpose(input, filters, kernel_size, strides):
+    return tf.layers.conv2d_transpose(input, filters, kernel_size=kernel_size, strides=strides,
+                                      padding='SAME', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
 
 def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     """
-    Create the layers for a fully convolutional network.  Build skip-layers using the vgg layers.
+    Create the layers for a fully convolutional network. Build skip-layers using the vgg layers.
     :param vgg_layer7_out: TF Tensor for VGG Layer 3 output
     :param vgg_layer4_out: TF Tensor for VGG Layer 4 output
     :param vgg_layer3_out: TF Tensor for VGG Layer 7 output
     :param num_classes: Number of classes to classify
     :return: The Tensor for the last layer of output
     """
-    # TODO: Implement function
-    return None
+
+    l7_conv1x1 = conv2d(vgg_layer7_out, num_classes, 1, 1)
+
+    # deconvolution layers
+    transposed_l7_output = conv2d_transpose(l7_conv1x1, num_classes, 8, 4)
+    transposed_l4_output = conv2d_transpose(vgg_layer4_out, num_classes, 4, 2)
+    transposed_l3_output = conv2d_transpose(vgg_layer3_out, num_classes, 1, 1)
+
+    output = tf.add(transposed_l7_output, transposed_l4_output)
+    output = tf.add(output, transposed_l3_output)
+    output = conv2d_transpose(output, num_classes, 16, 8)
+
+    return output
 tests.test_layers(layers)
 
 
@@ -61,6 +88,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
     # TODO: Implement function
+    logits = tf.reshape(input, (-1, num_classes))
     return None, None, None
 tests.test_optimize(optimize)
 
@@ -81,6 +109,11 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     # TODO: Implement function
+
+    for epoch in epochs:
+        for image, label in get_batches_fn(batch_size):
+            # training
+            pass
     pass
 tests.test_train_nn(train_nn)
 
@@ -90,6 +123,8 @@ def run():
     image_shape = (160, 576)
     data_dir = './data'
     runs_dir = './runs'
+
+    # check for dataset
     tests.test_for_kitti_dataset(data_dir)
 
     # Download pretrained vgg model
@@ -109,6 +144,8 @@ def run():
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
 
         # TODO: Build NN using load_vgg, layers, and optimize function
+        input_image, keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(sess, vgg_path)
+        layer_output = layers(layer3_out, layer4_out, layer7_out, num_classes)
 
         # TODO: Train NN using the train_nn function
 
