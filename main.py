@@ -103,7 +103,7 @@ tests.test_optimize(optimize)
 
 
 def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
-             correct_label, keep_prob, learning_rate):
+             correct_label, keep_prob, learning_rate, train_writer):
     """
     Train neural network and print out the loss during training.
     :param sess: TF Session
@@ -122,30 +122,34 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     for epoch in range(0, epochs):
 
         total_training_loss = 0
+        start = time.time()
 
         for image, label in get_batches_fn(batch_size):
-            start = time.time()
 
-            _, loss = sess.run([train_op, cross_entropy_loss],
-                                             feed_dict={input_image: image, correct_label: label,
-                                                        keep_prob: 0.5, learning_rate: 0.001})
+            feed_dict={input_image: image, correct_label: label,
+                       keep_prob: config.training_options["keep_prob"],
+                       learning_rate: config.training_options["learning_rate"]}
+
+            _, loss = sess.run([train_op, cross_entropy_loss], feed_dict=feed_dict)
 
             total_training_loss += loss
-            end = time.time()
-            print("elapsed time:{0}".format(end - start))
 
-        message = "epoch:{}, total_training_loss:{}".format(epoch+1, total_training_loss)
+        # logging
+        summary = tf.Summary()
+        summary.value.add(tag="train/par_epoch_total_loss", simple_value=total_training_loss)
+
+        train_writer.add_summary(summary, epoch)
+        train_writer.flush()
+
+        end = time.time()
+
+        message = "epoch:{}, elapsed time:{}, total_training_loss:{}".format(epoch+1, str(end-start), total_training_loss)
         print(message)
 
 tests.test_train_nn(train_nn)
 
 
 def run():
-    # num_classes = 2
-    # image_shape = (160, 576)
-    # data_dir = './data'
-    # runs_dir = './runs'
-    # model_dir = './model'
 
     num_classes = config.training_options["num_class"]
     image_shape = config.training_options["image_shape"]
@@ -153,8 +157,8 @@ def run():
     runs_dir = config.data_paths["runs_dir"]
     model_dir = config.data_paths["model_dir"]
 
-    epochs = 1
-    batch_size = 10
+    epochs = config.training_options["epochs"]
+    batch_size = config.training_options["batch_size"]
 
     # check for dataset
     tests.test_for_kitti_dataset(data_dir)
@@ -162,11 +166,13 @@ def run():
     # Download pretrained vgg model
     helper.maybe_download_pretrained_vgg(data_dir)
 
-    # Save model
+    # create path to model
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
 
-    model_save_path = os.path.join(model_dir, str(datetime.datetime.now()).replace(' ', '-'))
+    now_date = str(datetime.datetime.now()).replace(' ', '-')
+    os.mkdir(os.path.join(model_dir, now_date))
+    model_save_path = os.path.join(model_dir, now_date, 'model')
 
     # OPTIONAL: Train and Inference on the cityscapes dataset instead of the Kitti dataset.
     # You'll need a GPU with at least 10 teraFLOPS to train on.
@@ -190,13 +196,16 @@ def run():
         logits, train_op, loss = optimize(layer_output, correct_label, learning_rate, num_classes)
 
         saver = tf.train.Saver()
+        train_writer = tf.summary.FileWriter(runs_dir, sess.graph)
 
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
 
         # TODO: Train NN using the train_nn function
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, loss,
-                 input_image, correct_label, keep_prob, learning_rate)
+                 input_image, correct_label, keep_prob, learning_rate, train_writer)
+
+        train_writer.close()
 
         # TODO: Save inference data using helper.save_inference_samples
         helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
