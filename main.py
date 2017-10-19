@@ -159,6 +159,8 @@ def run():
 
     epochs = config.training_options["epochs"]
     batch_size = config.training_options["batch_size"]
+    is_restore = config.training_options["is_restore"]
+    restore_model_path = config.training_options["restore_model_path"]
 
     # check for dataset
     tests.test_for_kitti_dataset(data_dir)
@@ -176,7 +178,9 @@ def run():
 
     # OPTIONAL: Train and Inference on the cityscapes dataset instead of the Kitti dataset.
     # You'll need a GPU with at least 10 teraFLOPS to train on.
-    #  https://www.cityscapes-dataset.com/
+    # https://www.cityscapes-dataset.com/
+
+    tf.set_random_seed(112)
 
     with tf.Session() as sess:
         # Path to vgg model
@@ -187,7 +191,7 @@ def run():
         learning_rate = tf.placeholder(tf.float32, None)
 
         # OPTIONAL: Augment Images for better results
-        #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
+        # https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
 
         # Build NN using load_vgg, layers, and optimize function
         input_image, keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(sess, vgg_path)
@@ -198,8 +202,12 @@ def run():
         saver = tf.train.Saver()
         train_writer = tf.summary.FileWriter(runs_dir, sess.graph)
 
-        sess.run(tf.global_variables_initializer())
-        sess.run(tf.local_variables_initializer())
+        # restore model
+        if is_restore:
+            saver.restore(sess, os.path.join(restore_model_path, 'model'))
+        else:
+            sess.run(tf.global_variables_initializer())
+            sess.run(tf.local_variables_initializer())
 
         # TODO: Train NN using the train_nn function
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, loss,
