@@ -69,10 +69,10 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
 
     l7_conv1x1 = conv2d(vgg_layer7_out, num_classes, 1, 1)
 
-    # deconvolution layers
-    transposed_l7_output = conv2d_transpose(l7_conv1x1, num_classes, 8, 4)
-    transposed_l4_output = conv2d_transpose(vgg_layer4_out, num_classes, 4, 2)
-    transposed_l3_output = conv2d_transpose(vgg_layer3_out, num_classes, 1, 1)
+    # deconvolution layers, num_classes -> 16
+    transposed_l7_output = conv2d_transpose(l7_conv1x1, 16, 8, 4)
+    transposed_l4_output = conv2d_transpose(vgg_layer4_out, 16, 4, 2)
+    transposed_l3_output = conv2d_transpose(vgg_layer3_out, 16, 1, 1)
 
     output = tf.add(transposed_l7_output, transposed_l4_output)
     output = tf.add(output, transposed_l3_output)
@@ -136,7 +136,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
 
         # logging
         summary = tf.Summary()
-        summary.value.add(tag="train/par_epoch_total_loss", simple_value=total_training_loss)
+        summary.value.add(tag="train/par_epoch_mean_loss", simple_value=total_training_loss/batch_size)
 
         train_writer.add_summary(summary, epoch)
         train_writer.flush()
