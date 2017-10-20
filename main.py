@@ -49,10 +49,27 @@ tests.test_load_vgg(load_vgg, tf)
 
 
 def conv2d(input, filters, kernel_size, strides):
+    """
+    Given input, filters, kernel_size and strides, return convolution layer object using given arguments
+    :param input: A tensor
+    :param filters: int value
+    :param kernel_size: int value
+    :param strides: int value
+    :return: 2D convolution layer object
+    """
     return tf.layers.conv2d(input, filters, kernel_size=kernel_size, strides=strides,
                             padding='SAME', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
 def conv2d_transpose(input, filters, kernel_size, strides):
+    """
+    Given input, filters, kernel_size and strides, 
+    return transposed convolution layer object using given arguments
+    :param input: A tensor
+    :param filters: int value
+    :param kernel_size: int value
+    :param strides: int value
+    :return: 2D convolution layer object
+    """
     return tf.layers.conv2d_transpose(input, filters, kernel_size=kernel_size, strides=strides,
                                       padding='SAME', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
@@ -67,9 +84,9 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :return: The Tensor for the last layer of output
     """
 
-    l7_conv1x1 = conv2d(vgg_layer7_out, num_classes, 1, 1)
+    l7_conv1x1 = conv2d(vgg_layer7_out, 16, 1, 1)
 
-    # deconvolution layers, num_classes -> 16
+    # deconvolution layers (16 kernels)
     transposed_l7_output = conv2d_transpose(l7_conv1x1, 16, 8, 4)
     transposed_l4_output = conv2d_transpose(vgg_layer4_out, 16, 4, 2)
     transposed_l3_output = conv2d_transpose(vgg_layer3_out, 16, 1, 1)
@@ -91,10 +108,11 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :param num_classes: Number of classes to classify
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
-    # Implement function
+
     logits = tf.reshape(nn_last_layer, (-1, num_classes))
     labels = tf.reshape(correct_label, (-1, num_classes))
 
+    # Use mean softmax cross entropy as loss function
     loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels))
     train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
@@ -116,6 +134,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param correct_label: TF Placeholder for label images
     :param keep_prob: TF Placeholder for dropout keep probability
     :param learning_rate: TF Placeholder for learning rate
+    :param train_writer: TF Object for logging
     """
     # TODO: Implement function
 
@@ -143,7 +162,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
 
         end = time.time()
 
-        message = "epoch:{}, elapsed time:{}, total_training_loss:{}".format(epoch+1, str(end-start), total_training_loss)
+        message = "epoch:{}, elapsed time:{}, mean_training_loss:{}".format(epoch+1, str(end-start), total_training_loss/batch_size)
         print(message)
 
 tests.test_train_nn(train_nn)
@@ -151,12 +170,12 @@ tests.test_train_nn(train_nn)
 
 def run():
 
+    # load training parameters
     num_classes = config.training_options["num_class"]
     image_shape = config.training_options["image_shape"]
     data_dir = config.data_paths["data_dir"]
     runs_dir = config.data_paths["runs_dir"]
     model_dir = config.data_paths["model_dir"]
-
     epochs = config.training_options["epochs"]
     batch_size = config.training_options["batch_size"]
     is_restore = config.training_options["is_restore"]
@@ -202,20 +221,18 @@ def run():
         saver = tf.train.Saver()
         train_writer = tf.summary.FileWriter(runs_dir, sess.graph)
 
-        # restore model
         if is_restore:
+            # restore model
             saver.restore(sess, os.path.join(restore_model_path, 'model'))
         else:
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
 
-        # TODO: Train NN using the train_nn function
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, loss,
                  input_image, correct_label, keep_prob, learning_rate, train_writer)
 
         train_writer.close()
 
-        # TODO: Save inference data using helper.save_inference_samples
         helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
 
         saver.save(sess, model_save_path)

@@ -1,5 +1,8 @@
 """
-Configuration module
+Training option module
+these training options assume to use on aws s3 p2.xlarge instance.
+learning rate and batch size was decide by reference to paper of 
+Fully Convolutional Networks for Semantic Segmentation.
 """
 
 training_options = {
