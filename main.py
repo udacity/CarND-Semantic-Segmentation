@@ -40,9 +40,9 @@ tests.test_load_vgg(load_vgg, tf)
 def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     """
     Create the layers for a fully convolutional network.  Build skip-layers using the vgg layers.
-    :param vgg_layer7_out: TF Tensor for VGG Layer 3 output
+    :param vgg_layer3_out: TF Tensor for VGG Layer 3 output
     :param vgg_layer4_out: TF Tensor for VGG Layer 4 output
-    :param vgg_layer3_out: TF Tensor for VGG Layer 7 output
+    :param vgg_layer7_out: TF Tensor for VGG Layer 7 output
     :param num_classes: Number of classes to classify
     :return: The Tensor for the last layer of output
     """
