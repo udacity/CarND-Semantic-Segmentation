@@ -32,5 +32,10 @@ python main.py
  - `project_tests.py`
  - Newest inference images from `runs` folder  (**all images from the most recent run**)
  
- ## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
+### Using GitHub and Creating Effective READMEs
+
+If you are unfamiliar with GitHub , Udacity has a brief [GitHub tutorial](http://blog.udacity.com/2015/06/a-beginners-git-github-tutorial.html) to get you started. Udacity also provides a more detailed free [course on git and GitHub](https://www.udacity.com/course/how-to-use-git-and-github--ud775).
+
+To learn about REAMDE files and Markdown, Udacity provides a free [course on READMEs](https://www.udacity.com/courses/ud777), as well. 
+
+GitHub also provides a [tutorial](https://guides.github.com/features/mastering-markdown/) about creating Markdown files.
