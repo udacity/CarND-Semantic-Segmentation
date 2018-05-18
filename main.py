@@ -25,7 +25,7 @@ def load_vgg(sess, vgg_path):
     :return: Tuple of Tensors from VGG model (image_input, keep_prob, layer3_out, layer4_out, layer7_out)
     """
     #   Use tf.saved_model.loader.load to load the model and weights
-   
+
     vgg_tag = 'vgg16'
     vgg_input_tensor_name = 'image_input:0'
     vgg_keep_prob_tensor_name = 'keep_prob:0'
@@ -126,13 +126,14 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     train_count = 1
-    for epoch in epochs:
+
+    for epoch in range(epochs):
         for image, label in get_batches_fn(batch_size):
             _, loss = sess.run([train_op, cross_entropy_loss],
                                feed_dict={input_image: image, correct_label: label,
                                           keep_prob: 0.3, learning_rate: 1e-3})
             if train_count % 10 == 0:
-                print("Epoch: {} Loss: {}", epoch+1, loss)
+                print("Epoch: {} Loss: {}".format(epoch+1, loss))
             train_count += 1
 tests.test_train_nn(train_nn)
 
@@ -140,7 +141,7 @@ tests.test_train_nn(train_nn)
 def run():
     num_classes = 2
     image_shape = (160, 576)
-    epochs = range(5)
+    epochs = 50
     batch_size = 32
     correct_label = tf.placeholder(tf.float32, shape=(None, None, None, num_classes))
     learning_rate = tf.placeholder(tf.float32)
@@ -167,6 +168,8 @@ def run():
         input_image, keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(sess, vgg_path)
         layer_output = layers(layer3_out, layer4_out, layer7_out, num_classes)
         logits, cross_entropy_loss, train_op = optimize(layer_output, correct_label, learning_rate, num_classes)
+
+        sess.run(tf.global_variables_initializer())
 
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
                  correct_label, keep_prob, learning_rate)
