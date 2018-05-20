@@ -152,7 +152,8 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     """
     sess.run(tf.global_variables_initializer())
     train_count = 1
-
+    saver = tf.train.Saver()
+    
     for epoch in range(epochs):
         for image, label in get_batches_fn(batch_size):
             tf.summary.image('input', image, batch_size)
@@ -201,16 +202,18 @@ def run():
         layer_output = layers(layer3_out, layer4_out, layer7_out, num_classes)
         logits, train_op, cross_entropy_loss = optimize(layer_output, correct_label, learning_rate, num_classes)
 
-        train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
-                 correct_label, keep_prob, learning_rate)
-
-        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
-
         # OPTIONAL: Apply the trained model to a video
         summ = tf.summary.merge_all()
         print("Running tensorboard in {}".format(LOGDIR+"1"))
         writer = tf.summary.FileWriter(LOGDIR+"1")
         writer.add_graph(sess.graph)
+
+        train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
+                 correct_label, keep_prob, learning_rate)
+
+        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+
+
 
 
 if __name__ == '__main__':
