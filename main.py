@@ -38,14 +38,14 @@ def load_vgg(sess, vgg_path):
     tf.saved_model.loader.load(sess, [vgg_tag], vgg_path)
     with tf.name_scope("Encoder"):
         image_input = tf.get_default_graph().get_tensor_by_name(vgg_input_tensor_name)
-        image_input.name = "Image Input"
+        # image_input.name = "Image Input"
         keepprob_out = tf.get_default_graph().get_tensor_by_name(vgg_keep_prob_tensor_name)
         layer3_out = tf.get_default_graph().get_tensor_by_name(vgg_layer3_out_tensor_name)
-        layer3_out.name = "Layer 3"
+        # layer3_out.name = "Layer 3"
         layer4_out = tf.get_default_graph().get_tensor_by_name(vgg_layer4_out_tensor_name)
-        layer4_out.name = "Layer 4"
+        # layer4_out.name = "Layer 4"
         layer7_out = tf.get_default_graph().get_tensor_by_name(vgg_layer7_out_tensor_name)
-        layer7_out.name = "Layer 7"
+        # layer7_out.name = "Layer 7"
     return image_input, keepprob_out, layer3_out, layer4_out, layer7_out
 tests.test_load_vgg(load_vgg, tf)
 
@@ -74,7 +74,7 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
                                           kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                                           name="layer3_conv1x1")
 
-    with tf.name_scope("conv2d_transpose")
+    with tf.name_scope("conv2d_transpose"):
         # 2xConv7
         layer7_conv1x1_upsamp = tf.layers.conv2d_transpose(layer7_conv1x1,
                                                            num_classes, 4,
@@ -83,11 +83,11 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
                                                            kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3),
                                                            kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                                                            name="layer7_conv1x1_upsamp")
-    with tf.name_scope("Add Layer"):
-       combine74 = tf.add(layer4_conv1x1, layer7_conv1x1_upsamp, name="Add Layer")
+    with tf.name_scope("Add_Layer"):
+       combine74 = tf.add(layer4_conv1x1, layer7_conv1x1_upsamp, name="combine74")
 
 
-    with tf.name_scope("conv2d_transpose")
+    with tf.name_scope("conv2d_transpose"):
         # 2xConv4
         combine74_upsamp = tf.layers.conv2d_transpose(combine74,
                                                        num_classes, 4,
@@ -97,10 +97,10 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
                                                        kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                                                        name="combine74_upsamp")
 
-    with tf.name_scope("Add Layer"):
-        output = tf.add(layer3_conv1x1, combine74_upsamp, name="Add Layer")
+    with tf.name_scope("Add_Layer"):
+        output = tf.add(layer3_conv1x1, combine74_upsamp, name="combine74_3")
 
-    with tf.name_scope("conv2d_transpose")
+    with tf.name_scope("conv2d_transpose"):
         # upsample the output to 8x
         output_upsamp = tf.layers.conv2d_transpose(output,
                                                    num_classes, 16,
@@ -127,7 +127,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     correct_label = tf.reshape(correct_label, (-1, num_classes))
     with tf.name_scope("xent"):
         cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=correct_label))
-        tf.summary.scalar("xent", xent)
+        tf.summary.scalar("xent", cross_entropy_loss)
 
     with tf.name_scope("train"):
         train_op = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy_loss)
