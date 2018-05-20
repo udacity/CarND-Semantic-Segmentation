@@ -16,8 +16,7 @@ if not tf.test.gpu_device_name():
 else:
     print('Default GPU Device: {}'.format(tf.test.gpu_device_name()))
 
-
-LOGDIR = "/tmp/Sem/"
+LOGDIR = "tensorboard_log/"
 
 def load_vgg(sess, vgg_path):
     """
@@ -209,7 +208,8 @@ def run():
 
         # OPTIONAL: Apply the trained model to a video
         summ = tf.summary.merge_all()
-        writer = tf.summary.FileWriter(LOGDIR)
+        print("Running tensorboard in {}".format(LOGDIR+"1"))
+        writer = tf.summary.FileWriter(LOGDIR+"1")
         writer.add_graph(sess.graph)
 
 
