@@ -2,6 +2,7 @@ import os.path
 import tensorflow as tf
 import helper
 import warnings
+import numpy as np
 from distutils.version import LooseVersion
 import project_tests as tests
 
@@ -139,7 +140,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
 
 
 def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
-             correct_label, keep_prob, learning_rate, meaniou_op, mean_iou_update_op):
+             correct_label, keep_prob, learning_rate, meaniou_op, mean_iou_update_op, get_batches_fn_valid):
     """
     Train neural network and print out the loss during training.
     :param sess: TF Session
@@ -177,6 +178,17 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
                 print("Epoch: {} Loss: {} mIOU:{}".format(epoch+1, loss, miou))
                 writer.add_summary(s, train_count)
             train_count += 1
+        meanLoss = []
+        meanIOU = []
+        for image, label in get_batches_fn_valid(batch_size):
+            loss, s, _, miou = sess.run([cross_entropy_loss, summ, mean_iou_update_op, meaniou_op],
+                       feed_dict={input_image: image, correct_label: label,
+                                  keep_prob: 1.0, learning_rate: 1e-3})
+            meanLoss.append(loss)
+            meanIOU.append(miou)
+        print("Epoch: {} Validation Loss: {} Validation mIOU:{}".format(epoch+1,
+                                            np.mean(meanLoss), np.mean(miou)))
+
         # if train_count % 500 == 0:
         #     saver.save(sess, os.path.join(LOGDIR, "model.ckpt"), i)
 
@@ -193,7 +205,9 @@ def run():
 
     data_dir = './data'
     runs_dir = './runs'
-    tests.test_for_kitti_dataset(data_dir)
+    if not os.path.exists(os.path.join(data_dir, 'data_road/training')):
+        raise FileNotFoundError('Make sure you download dataset and put in data_road')
+    # tests.test_for_kitti_dataset(data_dir)
 
     # Download pretrained vgg model
     helper.maybe_download_pretrained_vgg(data_dir)
@@ -208,6 +222,7 @@ def run():
         vgg_path = os.path.join(data_dir, 'vgg')
         # Create function to get batches
         get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape)
+        get_batches_fn_valid = helper.gen_batch_function(os.path.join(data_dir, 'data_road/valid'), image_shape)
 
         # OPTIONAL: Augment Images for better results
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
@@ -219,7 +234,7 @@ def run():
         print("Running tensorboard in {}".format(LOGDIR+"1"))
 
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
-                 correct_label, keep_prob, learning_rate, meaniou_op, mean_iou_update_op)
+                 correct_label, keep_prob, learning_rate, meaniou_op, mean_iou_update_op, get_batches_fn_valid)
 
         helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
 

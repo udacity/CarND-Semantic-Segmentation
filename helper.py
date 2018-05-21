@@ -11,6 +11,7 @@ from glob import glob
 from urllib.request import urlretrieve
 from tqdm import tqdm
 from imgaug import augmenters as iaa
+from sklearn.model_selection import train_test_split
 
 
 
@@ -59,6 +60,29 @@ def maybe_download_pretrained_vgg(data_dir):
         # Remove zip file to save space
         os.remove(os.path.join(vgg_path, vgg_filename))
 
+def split_data(BASE_DIR='data_road'):
+    data_folder = os.path.join(BASE_DIR,'full_training')
+    os.makedirs(data_folder)
+    os.rename(os.path.join(BASE_DIR, 'training'), data_folder)
+    image_paths = glob(os.path.join(data_folder, 'image_2', '*.png'))
+    label_paths = [path for path in glob(os.path.join(data_folder, 'gt_image_2', '*_road_*.png'))]
+    X_train, X_test, y_train, y_test = train_test_split(sorted(image_paths),
+                        sorted(label_paths), test_size=0.33, random_state=42)
+    if not os.path.exists(os.path.join(BASE_DIR,"training", "image_2")):
+        os.makedirs(os.path.join(BASE_DIR,"training", "image_2"))
+        os.makedirs(os.path.join(BASE_DIR,"training", "gt_image_2"))
+        os.makedirs(os.path.join(BASE_DIR,"valid", "image_2"))
+        os.makedirs(os.path.join(BASE_DIR,"valid", "gt_image_2"))
+    for x,y in zip(X_train,y_train):
+        os.rename(os.path.join(BASE_DIR,'full_training', 'image_2',os.path.basename(x)),
+                 os.path.join(BASE_DIR,"training", "image_2", os.path.basename(x)))
+        os.rename(os.path.join(BASE_DIR,'full_training', 'gt_image_2',os.path.basename(y)),
+                 os.path.join(BASE_DIR,"training", "gt_image_2", os.path.basename(y)))
+    for x,y in zip(X_test,y_test):
+        os.rename(os.path.join(BASE_DIR,'full_training', 'image_2',os.path.basename(x)),
+                 os.path.join(BASE_DIR,"valid", "image_2", os.path.basename(x)))
+        os.rename(os.path.join(BASE_DIR,'full_training', 'gt_image_2',os.path.basename(y)),
+             os.path.join(BASE_DIR,"valid", "gt_image_2", os.path.basename(y)))
 
 def gen_batch_function(data_folder, image_shape):
     """
@@ -128,7 +152,7 @@ def gen_batch_function(data_folder, image_shape):
                 # gt_images.append(seq_det.augment_image(gt_image))
                 images.append(image)
                 gt_images.append(gt_image)
-                
+
             yield np.array(images), np.array(gt_images)
     return get_batches_fn
 
