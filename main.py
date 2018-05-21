@@ -123,6 +123,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
     logits = tf.reshape(nn_last_layer, (-1, num_classes))
+    miou_label = tf.reshape(correct_label[:,:,:,1], [-1])
     correct_label = tf.reshape(correct_label, (-1, num_classes))
     with tf.name_scope("xent"):
         cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=correct_label))
@@ -131,12 +132,14 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     with tf.name_scope("train"):
         train_op = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy_loss)
 
-    return logits, train_op, cross_entropy_loss
-tests.test_optimize(optimize)
+    with tf.name_scope("mIOU"):
+        meaniou_op, mean_iou_update_op = tf.metrics.mean_iou(miou_label, tf.nn.softmax(logits)[:,1] > 0.5,num_classes)
+    return logits, train_op, cross_entropy_loss, meaniou_op, mean_iou_update_op
+# tests.test_optimize(optimize)
 
 
 def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
-             correct_label, keep_prob, learning_rate):
+             correct_label, keep_prob, learning_rate, meaniou_op, mean_iou_update_op):
     """
     Train neural network and print out the loss during training.
     :param sess: TF Session
@@ -151,6 +154,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     sess.run(tf.global_variables_initializer())
+    sess.run(tf.initialize_local_variables())
     writer = tf.summary.FileWriter(LOGDIR+"1")
     writer.add_graph(sess.graph)
     train_count = 1
@@ -165,11 +169,12 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
             tf.summary.image('input', image[0], 1)
             tf.summary.image('ground truth', label[0], 1)
             with tf.name_scope("loss"):
-                _, loss, s = sess.run([train_op, cross_entropy_loss, summ],
+
+                _, loss, s, _, miou = sess.run([train_op, cross_entropy_loss, summ, mean_iou_update_op, meaniou_op],
                                    feed_dict={input_image: image, correct_label: label,
                                               keep_prob: 0.5, learning_rate: 1e-3})
             if train_count % 10 == 0:
-                print("Epoch: {} Loss: {}".format(epoch+1, loss))
+                print("Epoch: {} Loss: {} mIOU:{}".format(epoch+1, loss, miou))
                 writer.add_summary(s, train_count)
             train_count += 1
         # if train_count % 500 == 0:
@@ -208,13 +213,13 @@ def run():
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
         input_image, keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(sess, vgg_path)
         layer_output = layers(layer3_out, layer4_out, layer7_out, num_classes)
-        logits, train_op, cross_entropy_loss = optimize(layer_output, correct_label, learning_rate, num_classes)
+        logits, train_op, cross_entropy_loss, meaniou_op, mean_iou_update_op = optimize(layer_output, correct_label, learning_rate, num_classes)
 
         # OPTIONAL: Apply the trained model to a video
         print("Running tensorboard in {}".format(LOGDIR+"1"))
 
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
-                 correct_label, keep_prob, learning_rate)
+                 correct_label, keep_prob, learning_rate, meaniou_op, mean_iou_update_op)
 
         helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
 
