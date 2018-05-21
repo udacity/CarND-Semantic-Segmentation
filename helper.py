@@ -84,13 +84,14 @@ def split_data(BASE_DIR='data_road'):
         os.rename(os.path.join(BASE_DIR,'full_training', 'gt_image_2',os.path.basename(y)),
              os.path.join(BASE_DIR,"valid", "gt_image_2", os.path.basename(y)))
 
-def gen_batch_function(data_folder, image_shape):
+def gen_batch_function(data_folder, image_shape, train=True):
     """
     Generate function to create batches of training data
     :param data_folder: Path to folder that contains all the datasets
     :param image_shape: Tuple - Shape of image
     :return:
     """
+    _train = train
     seq = iaa.Sequential([
         iaa.Fliplr(0.5), # horizontal flips
         iaa.Crop(percent=(0, 0.1)), # random crops
@@ -138,21 +139,18 @@ def gen_batch_function(data_folder, image_shape):
             images = []
             gt_images = []
             for image_file in image_paths[batch_i:batch_i+batch_size]:
-                seq_det = seq.to_deterministic()
                 gt_image_file = label_paths[os.path.basename(image_file)]
-
                 image = scipy.misc.imresize(scipy.misc.imread(image_file), image_shape)
                 gt_image = scipy.misc.imresize(scipy.misc.imread(gt_image_file), image_shape)
-
+                if _train:
+                    seq_det = seq.to_deterministic()
+                    image = seq_det.augment_image(image)
+                    gt_image = seq_det.augment_image(gt_image)
                 gt_bg = np.all(gt_image == background_color, axis=2)
                 gt_bg = gt_bg.reshape(*gt_bg.shape, 1)
                 gt_image = np.concatenate((gt_bg, np.invert(gt_bg)), axis=2)
-
-                # images.append(seq_det.augment_image(image))
-                # gt_images.append(seq_det.augment_image(gt_image))
                 images.append(image)
                 gt_images.append(gt_image)
-
             yield np.array(images), np.array(gt_images)
     return get_batches_fn
 

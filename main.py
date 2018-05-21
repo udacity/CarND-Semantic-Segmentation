@@ -180,12 +180,13 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
             train_count += 1
         meanLoss = []
         meanIOU = []
-        for image, label in get_batches_fn_valid(batch_size):
-            loss, s, _, miou = sess.run([cross_entropy_loss, summ, mean_iou_update_op, meaniou_op],
-                       feed_dict={input_image: image, correct_label: label,
-                                  keep_prob: 1.0, learning_rate: 1e-3})
-            meanLoss.append(loss)
-            meanIOU.append(miou)
+        for i in range(2):
+            for image, label in get_batches_fn_valid(batch_size):
+                loss, s, _, miou = sess.run([cross_entropy_loss, summ, mean_iou_update_op, meaniou_op],
+                           feed_dict={input_image: image, correct_label: label,
+                                      keep_prob: 1.0, learning_rate: 1e-3})
+                meanLoss.append(loss)
+                meanIOU.append(miou)
         print("Epoch: {} Validation Loss: {} Validation mIOU:{}".format(epoch+1,
                                             np.mean(meanLoss), np.mean(miou)))
 
@@ -221,8 +222,8 @@ def run():
         # Path to vgg model
         vgg_path = os.path.join(data_dir, 'vgg')
         # Create function to get batches
-        get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape)
-        get_batches_fn_valid = helper.gen_batch_function(os.path.join(data_dir, 'data_road/valid'), image_shape)
+        get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape, train=True)
+        get_batches_fn_valid = helper.gen_batch_function(os.path.join(data_dir, 'data_road/valid'), image_shape, train=False)
 
         # OPTIONAL: Augment Images for better results
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
