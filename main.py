@@ -151,24 +151,31 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     sess.run(tf.global_variables_initializer())
+    writer = tf.summary.FileWriter(LOGDIR+"1")
+    writer.add_graph(sess.graph)
     train_count = 1
-    saver = tf.train.Saver()
-    
+    # saver = tf.train.Saver()
+    #
+    summ = tf.summary.merge_all()
     for epoch in range(epochs):
         for image, label in get_batches_fn(batch_size):
-            tf.summary.image('input', image, batch_size)
-            tf.summary.image('ground truth', label, batch_size)
+            # print("=========================")
+            # print(image.shape)
+            # print(label.shape)
+            tf.summary.image('input', image[0], 1)
+            tf.summary.image('ground truth', label[0], 1)
             with tf.name_scope("loss"):
-                _, loss = sess.run([train_op, cross_entropy_loss],
+                _, loss, s = sess.run([train_op, cross_entropy_loss, summ],
                                    feed_dict={input_image: image, correct_label: label,
                                               keep_prob: 0.5, learning_rate: 1e-3})
-                tf.summary.scalar("loss", loss)
             if train_count % 10 == 0:
                 print("Epoch: {} Loss: {}".format(epoch+1, loss))
-            if train_count % 500 == 0:
-                saver.save(sess, os.path.join(LOGDIR, "model.ckpt"), i)
+                writer.add_summary(s, train_count)
             train_count += 1
-tests.test_train_nn(train_nn)
+        # if train_count % 500 == 0:
+        #     saver.save(sess, os.path.join(LOGDIR, "model.ckpt"), i)
+
+# tests.test_train_nn(train_nn)
 
 
 def run():
@@ -190,6 +197,7 @@ def run():
     # You'll need a GPU with at least 10 teraFLOPS to train on.
     #  https://www.cityscapes-dataset.com/
 
+
     with tf.Session() as sess:
         # Path to vgg model
         vgg_path = os.path.join(data_dir, 'vgg')
@@ -203,10 +211,7 @@ def run():
         logits, train_op, cross_entropy_loss = optimize(layer_output, correct_label, learning_rate, num_classes)
 
         # OPTIONAL: Apply the trained model to a video
-        summ = tf.summary.merge_all()
         print("Running tensorboard in {}".format(LOGDIR+"1"))
-        writer = tf.summary.FileWriter(LOGDIR+"1")
-        writer.add_graph(sess.graph)
 
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
                  correct_label, keep_prob, learning_rate)
