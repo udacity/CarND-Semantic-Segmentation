@@ -60,21 +60,25 @@ def maybe_download_pretrained_vgg(data_dir):
         # Remove zip file to save space
         os.remove(os.path.join(vgg_path, vgg_filename))
 
+
 def preprocess_labels(label_image):
+    labels_new = np.copy(label_image)
+    print(labels_new.shape)
     # Identify lane marking pixels (label is 6)
     lane_marking_pixels = (label_image[:,:,0] == 6).nonzero()
     # Set lane marking pixels to road (label is 7)
     labels_new[lane_marking_pixels] = 7
-
     # Identify all vehicle pixels
     vehicle_pixels = (label_image[:,:,0] == 10).nonzero()
     # Isolate vehicle pixels associated with the hood (y-position > 496)
     hood_indices = (vehicle_pixels[0] >= 496).nonzero()[0]
-    hood_pixels = (vehicle_pixels[0][hood_indices], \
+    hood_pixels = (vehicle_pixels[0][hood_indices],
                    vehicle_pixels[1][hood_indices])
     # Set hood pixel labels to 0
     labels_new[hood_pixels] = 0
-    # Return the preprocessed label image
+    for i in [1,2,3,4,5,8,9,11,12]:
+        otherclass_pixels = (label_image[:,:,0] == i).nonzero()
+        labels_new[otherclass_pixels] = 0
     return labels_new
 
 def process_carla(BASE_DIR='Train'):
