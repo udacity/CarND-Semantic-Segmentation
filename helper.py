@@ -60,6 +60,28 @@ def maybe_download_pretrained_vgg(data_dir):
         # Remove zip file to save space
         os.remove(os.path.join(vgg_path, vgg_filename))
 
+def preprocess_labels(label_image):
+    # Identify lane marking pixels (label is 6)
+    lane_marking_pixels = (label_image[:,:,0] == 6).nonzero()
+    # Set lane marking pixels to road (label is 7)
+    labels_new[lane_marking_pixels] = 7
+
+    # Identify all vehicle pixels
+    vehicle_pixels = (label_image[:,:,0] == 10).nonzero()
+    # Isolate vehicle pixels associated with the hood (y-position > 496)
+    hood_indices = (vehicle_pixels[0] >= 496).nonzero()[0]
+    hood_pixels = (vehicle_pixels[0][hood_indices], \
+                   vehicle_pixels[1][hood_indices])
+    # Set hood pixel labels to 0
+    labels_new[hood_pixels] = 0
+    # Return the preprocessed label image
+    return labels_new
+
+def process_carla(BASE_DIR='Train'):
+    image_paths = glob(os.path.join(BASE_DIR, 'CameraSeg', '*.png'))
+    label_paths = glob(os.path.join(BASE_DIR, 'CameraRGB', '*.png'))
+    for label
+
 def split_data(BASE_DIR='data_road'):
     data_folder = os.path.join(BASE_DIR,'full_training')
     os.makedirs(data_folder)
@@ -97,9 +119,9 @@ def gen_batch_function(data_folder, image_shape, train=True):
         iaa.Crop(percent=(0, 0.1)), # random crops
         # Small gaussian blur with random sigma between 0 and 0.5.
         # But we only blur about 50% of all images.
-        iaa.Sometimes(0.5,
-            iaa.GaussianBlur(sigma=(0, 0.5))
-        ),
+        # iaa.Sometimes(0.5,
+        #     iaa.GaussianBlur(sigma=(0, 0.5))
+        # ),
         # Strengthen or weaken the contrast in each image.
         iaa.ContrastNormalization((0.75, 1.5)),
         # Add gaussian noise.
@@ -107,18 +129,18 @@ def gen_batch_function(data_folder, image_shape, train=True):
         # For the other 50% of all images, we sample the noise per pixel AND
         # channel. This can change the color (not only brightness) of the
         # pixels.
-        iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5),
+        # iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5),
         # Make some images brighter and some darker.
         # In 20% of all cases, we sample the multiplier once per channel,
         # which can end up changing the color of the images.
-        iaa.Multiply((0.8, 1.2), per_channel=0.2),
+        # iaa.Multiply((0.8, 1.2), per_channel=0.2),
         # Apply affine transformations to each image.
         # Scale/zoom them, translate/move them, rotate them and shear them.
         iaa.Affine(
             scale={"x": (0.8, 1.2), "y": (0.8, 1.2)},
             translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
-            rotate=(-25, 25),
-            shear=(-8, 8)
+            rotate=(-15, 15)
+           # shear=(-8, 8)
         )
     ], random_order=True) # apply augmenters in random order
 

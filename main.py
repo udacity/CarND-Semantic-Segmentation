@@ -155,7 +155,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     sess.run(tf.global_variables_initializer())
-    sess.run(tf.initialize_local_variables())
+    sess.run(tf.local_variables_initializer())
     writer = tf.summary.FileWriter(LOGDIR+"1")
     writer.add_graph(sess.graph)
     train_count = 1
@@ -173,7 +173,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
 
                 _, loss, s, _, miou = sess.run([train_op, cross_entropy_loss, summ, mean_iou_update_op, meaniou_op],
                                    feed_dict={input_image: image, correct_label: label,
-                                              keep_prob: 0.5, learning_rate: 1e-3})
+                                              keep_prob: 0.5, learning_rate: 1e-4})
             if train_count % 10 == 0:
                 print("Epoch: {} Loss: {} mIOU:{}".format(epoch+1, loss, miou))
                 writer.add_summary(s, train_count)
@@ -199,8 +199,8 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
 def run():
     num_classes = 2
     image_shape = (160, 576)
-    epochs = 41
-    batch_size = 10
+    epochs = 150
+    batch_size = 20
     correct_label = tf.placeholder(tf.float32, shape=(None, None, None, num_classes))
     learning_rate = tf.placeholder(tf.float32)
 
