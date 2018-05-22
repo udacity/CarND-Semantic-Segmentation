@@ -63,7 +63,6 @@ def maybe_download_pretrained_vgg(data_dir):
 
 def preprocess_labels(label_image):
     labels_new = np.copy(label_image)
-    print(labels_new.shape)
     # Identify lane marking pixels (label is 6)
     lane_marking_pixels = (label_image[:,:,0] == 6).nonzero()
     # Set lane marking pixels to road (label is 7)
@@ -82,9 +81,26 @@ def preprocess_labels(label_image):
     return labels_new
 
 def process_carla(BASE_DIR='Train'):
-    image_paths = glob(os.path.join(BASE_DIR, 'CameraSeg', '*.png'))
-    label_paths = glob(os.path.join(BASE_DIR, 'CameraRGB', '*.png'))
-    for label
+    image_paths = sorted(glob(os.path.join(BASE_DIR, 'CameraSeg', '*.png')))
+    label_paths = sorted(glob(os.path.join(BASE_DIR, 'CameraRGB', '*.png')))
+    for image, label in zip(image_paths, label_paths):
+        X_train, X_test, y_train, y_test = train_test_split(image_paths,
+                            label_paths, test_size=0.33, random_state=42)
+    if not os.path.exists(os.path.join("training", "CameraRGB")):
+        os.makedirs(os.path.join("training", "CameraRGB"))
+        os.makedirs(os.path.join("training", "CameraSeg"))
+        os.makedirs(os.path.join("valid", "CameraRGB"))
+        os.makedirs(os.path.join("valid", "CameraSeg"))
+    for x,y in zip(X_train,y_train):
+        os.rename(os.path.join(BASE_DIR, "CameraRGB",os.path.basename(x)),
+                 os.path.join("training", "CameraRGB", os.path.basename(x)))
+        os.rename(os.path.join(BASE_DIR,"CameraSeg" ,os.path.basename(y)),
+                 os.path.join("training", "CameraSeg", os.path.basename(y)))
+    for x,y in zip(X_test,y_test):
+        os.rename(os.path.join(BASE_DIR, "CameraRGB",os.path.basename(x)),
+                 os.path.join("valid", "CameraRGB", os.path.basename(x)))
+        os.rename(os.path.join(BASE_DIR,"CameraSeg" ,os.path.basename(y)),
+                 os.path.join("valid", "CameraSeg", os.path.basename(y)))
 
 def split_data(BASE_DIR='data_road'):
     data_folder = os.path.join(BASE_DIR,'full_training')
