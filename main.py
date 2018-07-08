@@ -76,11 +76,6 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
 
     output = tf.layers.conv2d_transpose(output, filters=num_classes,
                                        kernel_size=16, strides=(8, 8),
-                                       padding='SAME',
-                                       kernel_regularizer=l2_reg(1e-3))
-
-    output = tf.layers.conv2d_transpose(output, filters=num_classes,
-                                       kernel_size=16, strides=(8, 8),
                                        padding='SAME')
     return output
 
@@ -147,7 +142,7 @@ def run():
     data_dir = './data'
     runs_dir = './runs'
     epochs = 1
-    batch_size = 32
+    batch_size = 2
     learning_rate = 1e-4
     tests.test_for_kitti_dataset(data_dir)
 
