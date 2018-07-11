@@ -129,7 +129,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
                 keep_prob : 0.5,
                 correct_label : label,
             })
-            if batch_num % 10:
+            if batch_num % 10 == 0:
                 print('Done with batch number {}'.format(batch_num))
             batch_num += 1
 
@@ -142,7 +142,7 @@ def run():
     data_dir = './data'
     runs_dir = './runs'
     epochs = 1
-    batch_size = 2
+    batch_size = 16
     learning_rate = 1e-4
     tests.test_for_kitti_dataset(data_dir)
 
@@ -193,7 +193,7 @@ def run():
         )
 
         # TODO: Save inference data using helper.save_inference_samples
-        #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_tensor)
 
         # OPTIONAL: Apply the trained model to a video
 
