@@ -59,7 +59,7 @@ def add_stripes(tensor):
     y_stripes = tf.ones([batch_sz, x_shape, 1]) * tf.range(tf.cast(y_shape, tf.float32))
     return tf.concat([tensor,
                       tf.expand_dims(y_stripes, 3), 
-                      tf.expand_dims(y_stripes, 3)],
+                      tf.expand_dims(x_stripes, 3)],
                      3)
 
 
@@ -176,20 +176,18 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
                 keep_prob : 0.5,
                 correct_label : label,
             })
-            if batch_num % 10 == 0:
-                # sess.run(iou_op, {
-		#    correct_label: label,
-  	 	#    input_image: image,
-		#    keep_prob: 1,
-		#})
-                #mean_iou_value = sess.run(iou, {
-		#    correct_label: label,
-  	 	#    input_image: image,
-		#    keep_prob: 1,
-		#})
-                mean_iou_value = 0	
-                print('Done with batch number {}, IOU: {}'.format(batch_num, mean_iou_value))
+            sess.run(iou_op, {
+		correct_label: label,
+  	 	input_image: image,
+		keep_prob: 1,
+            })
+            mean_iou_value = sess.run(iou, {
+		correct_label: label,
+  	 	input_image: image,
+		keep_prob: 1,
+            })
             batch_num += 1
+            print('Done with batch {}, IOU: {:.2f}'.format(batch_num, 100*mean_iou_value))
         print('Done with epoch number {}'.format(epoch))
 
 # tests.test_train_nn(train_nn)
@@ -212,6 +210,8 @@ def run():
     learning_rate = 1e-4
     weighted_sum = False
     aug_chance = 0.1
+    coord_conv = True
+
     tests.test_for_kitti_dataset(data_dir)
 
     # Download pretrained vgg model
@@ -228,9 +228,6 @@ def run():
             image_shape
         )
 
-        # OPTIONAL: Augment Images for better results
-        #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
-
         # Build NN using load_vgg, layers, and optimize function
         vgg_path = os.path.join(data_dir, 'vgg')  # Path to vgg model
         input_tensor, keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(
@@ -238,7 +235,7 @@ def run():
             vgg_path
         )
 
-        nn_last_layer = layers(layer3_out, layer4_out, layer7_out, num_classes, weighted_sum)
+        nn_last_layer = layers(layer3_out, layer4_out, layer7_out, num_classes, weighted_sum, coord_conv)
 
         # Get the optimizer
         correct_label = tf.placeholder(tf.int32, [None, None, None, num_classes])
@@ -250,9 +247,11 @@ def run():
         )
 
 	# Calculate the IOU
-        #prediction = tf.cast_tf.greater(nn_last_layer, 0), tf.int32)
-        # iou, iou_op = mean_iou(correct_label, prediction, num_classes)
-        iou, iou_op = None, None
+        iou, iou_op = mean_iou(
+		tf.argmax(correct_label, 3),
+		tf.argmax(nn_last_layer, 3),
+		num_classes
+	)
 
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
@@ -266,12 +265,12 @@ def run():
             input_tensor, correct_label,
             keep_prob, learning_rate,
 	    iou_op, iou,
-            aug_chance
+            aug_chance,
         )
 
         # Save inference data using helper.save_inference_samples
-        dirname = 'e={}_bs={}_l2={}_ws={}_aug={:.2f}'.format(epochs, batch_size, True, weighted_sum, aug_chance)
-        dataset = None # 'tryput'
+        dirname = 'e={}_bs={}_l2={}_ws={}_aug={:.2f}_cc={}'.format(epochs, batch_size, True, weighted_sum, aug_chance, coord_conv)
+        dataset = 'tryput'
         helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_tensor,
 		 		      dirname, dataset)
 
