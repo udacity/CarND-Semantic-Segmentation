@@ -5,6 +5,7 @@ import helper
 import warnings
 from distutils.version import LooseVersion
 import project_tests as tests
+from utils import augment_image_batch
 
 
 # Check TensorFlow Version
@@ -47,7 +48,22 @@ def load_vgg(sess, vgg_path):
 # tests.test_load_vgg(load_vgg, tf)
 
 
-def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
+
+def add_stripes(tensor):
+    tensor_shape = tf.shape(tensor)
+    batch_sz = tensor_shape[0]
+    x_shape = tensor_shape[1]
+    y_shape = tensor_shape[2]
+    x_stripes = tf.ones([batch_sz, y_shape, 1]) * tf.range(tf.cast(x_shape, tf.float32))
+    x_stripes = tf.transpose(x_stripes, perm=[0,2,1])
+    y_stripes = tf.ones([batch_sz, x_shape, 1]) * tf.range(tf.cast(y_shape, tf.float32))
+    return tf.concat([tensor,
+                      tf.expand_dims(y_stripes, 3), 
+                      tf.expand_dims(y_stripes, 3)],
+                     3)
+
+
+def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes, weighted_sum=False, coord_conv=True):
     """
     Create the layers for a fully convolutional network.  Build skip-layers using the vgg layers.
     :param vgg_layer3_out: TF Tensor for VGG Layer 3 output
@@ -58,25 +74,52 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     """
     # "This is where all the fun happens"
 
+    lambda_ = 1e-3
+
     l2_reg = tf.contrib.layers.l2_regularizer
-    conv_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes,
-                                kernel_size=1,
-                                padding='SAME',
-                                kernel_regularizer=l2_reg(1e-3))
+    output = tf.layers.conv2d(vgg_layer7_out,
+			      filters=num_classes,
+                              kernel_size=1,
+                              padding='SAME',
+                              kernel_regularizer=l2_reg(lambda_))
+    if coord_conv:
+        output = add_stripes(output)
 
-    output = tf.layers.conv2d_transpose(conv_1x1, num_classes,
+    output = tf.layers.conv2d_transpose(output,
+					filters=vgg_layer4_out.get_shape().as_list()[-1],
                                         kernel_size=4, strides=(2, 2),
                                         padding='SAME',
-                                        kernel_regularizer=l2_reg(1e-3))
+                                        kernel_regularizer=l2_reg(lambda_))
 
-    output = tf.layers.conv2d_transpose(output, filters=16,
+    if weighted_sum:
+        alpha_1 = tf.Variable(1.0, tf.float32)
+        output = tf.add(
+            tf.multiply(alpha_1, vgg_layer4_out),
+            output
+        )
+    else:
+        output = tf.add(vgg_layer4_out, output)
+
+    output = tf.layers.conv2d_transpose(output,
+					filters=vgg_layer3_out.get_shape().as_list()[-1],
                                         kernel_size=4, strides=(2, 2),
                                         padding='SAME',
-                                        kernel_regularizer=l2_reg(1e-3))
+                                        kernel_regularizer=l2_reg(lambda_))
 
-    output = tf.layers.conv2d_transpose(output, filters=num_classes,
-                                       kernel_size=16, strides=(8, 8),
-                                       padding='SAME')
+    if weighted_sum:
+        alpha_2 = tf.Variable(1.0, tf.float32)
+        output = tf.add(
+    	    tf.multiply(alpha_2, vgg_layer3_out),
+            output
+        )
+    else:
+        output = tf.add(vgg_layer3_out, output)
+
+    output = tf.layers.conv2d_transpose(output,
+					filters=num_classes,
+                                        kernel_size=16, strides=(8, 8),
+                                        padding='SAME',
+					kernel_regularizer=l2_reg(lambda_))
     return output
 
 # tests.test_layers(layers)
@@ -96,9 +139,11 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
         labels=correct_label,
         logits=logits,
     ))
+    l2_loss = tf.losses.get_regularization_loss()
+    loss = cross_entropy_loss + l2_loss
     optimizer = tf.train.AdamOptimizer(learning_rate)
     train_op = optimizer.minimize(
-        loss=cross_entropy_loss,
+        loss=loss,
         global_step=tf.train.get_global_step())
 
     return logits, train_op, cross_entropy_loss
@@ -107,7 +152,8 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
 
 
 def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss,
-             input_image, correct_label, keep_prob, learning_rate):
+             input_image, correct_label, keep_prob, learning_rate, iou_op, iou,
+             aug_chance=0.0):
     """
     Train neural network and print out the loss during training.
     :param sess: TF Session
@@ -124,16 +170,36 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     for epoch in range(epochs):
         batch_num = 0
         for image, label in get_batches_fn(batch_size):
+            image = augment_image_batch(image, aug_chance)
             _ = sess.run(train_op, {
                 input_image : image,
                 keep_prob : 0.5,
                 correct_label : label,
             })
             if batch_num % 10 == 0:
-                print('Done with batch number {}'.format(batch_num))
+                # sess.run(iou_op, {
+		#    correct_label: label,
+  	 	#    input_image: image,
+		#    keep_prob: 1,
+		#})
+                #mean_iou_value = sess.run(iou, {
+		#    correct_label: label,
+  	 	#    input_image: image,
+		#    keep_prob: 1,
+		#})
+                mean_iou_value = 0	
+                print('Done with batch number {}, IOU: {}'.format(batch_num, mean_iou_value))
             batch_num += 1
+        print('Done with epoch number {}'.format(epoch))
 
 # tests.test_train_nn(train_nn)
+
+
+
+def mean_iou(ground_truth, prediction, num_classes):
+    iou, iou_op = tf.metrics.mean_iou(ground_truth, prediction, num_classes)
+    return iou, iou_op
+
 
 
 def run():
@@ -141,9 +207,11 @@ def run():
     image_shape = (160, 576)
     data_dir = './data'
     runs_dir = './runs'
-    epochs = 1
+    epochs = 15
     batch_size = 16
     learning_rate = 1e-4
+    weighted_sum = False
+    aug_chance = 0.1
     tests.test_for_kitti_dataset(data_dir)
 
     # Download pretrained vgg model
@@ -170,7 +238,7 @@ def run():
             vgg_path
         )
 
-        nn_last_layer = layers(layer3_out, layer4_out, layer7_out, num_classes)
+        nn_last_layer = layers(layer3_out, layer4_out, layer7_out, num_classes, weighted_sum)
 
         # Get the optimizer
         correct_label = tf.placeholder(tf.int32, [None, None, None, num_classes])
@@ -181,21 +249,32 @@ def run():
             num_classes
         )
 
+	# Calculate the IOU
+        #prediction = tf.cast_tf.greater(nn_last_layer, 0), tf.int32)
+        # iou, iou_op = mean_iou(correct_label, prediction, num_classes)
+        iou, iou_op = None, None
+
         sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
         print('Variables initialized')
+
         # Train NN using the train_nn function
         train_nn(
             sess,
             epochs, batch_size, get_batches_fn,
             train_op, cross_entropy_loss,
             input_tensor, correct_label,
-            keep_prob, learning_rate
+            keep_prob, learning_rate,
+	    iou_op, iou,
+            aug_chance
         )
 
-        # TODO: Save inference data using helper.save_inference_samples
-        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_tensor)
+        # Save inference data using helper.save_inference_samples
+        dirname = 'e={}_bs={}_l2={}_ws={}_aug={:.2f}'.format(epochs, batch_size, True, weighted_sum, aug_chance)
+        dataset = None # 'tryput'
+        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_tensor,
+		 		      dirname, dataset)
 
-        # OPTIONAL: Apply the trained model to a video
 
 
 if __name__ == '__main__':
