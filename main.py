@@ -100,6 +100,9 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes, weighted
     else:
         output = tf.add(vgg_layer4_out, output)
 
+    if coord_conv:
+        output = add_stripes(output)
+
     output = tf.layers.conv2d_transpose(output,
 					filters=vgg_layer3_out.get_shape().as_list()[-1],
                                         kernel_size=4, strides=(2, 2),
@@ -114,6 +117,9 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes, weighted
         )
     else:
         output = tf.add(vgg_layer3_out, output)
+
+    if coord_conv:
+        output = add_stripes(output)
 
     output = tf.layers.conv2d_transpose(output,
 					filters=num_classes,
@@ -151,7 +157,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
 # tests.test_optimize(optimize)
 
 
-def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss,
+def train_nn(sess, epochs, batch_size, get_batches_fn, get_valid_batches_fn, train_op, cross_entropy_loss,
              input_image, correct_label, keep_prob, learning_rate, iou_op, iou,
              aug_chance=0.0):
     """
@@ -168,7 +174,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     for epoch in range(epochs):
-        batch_num = 0
+        # Training
         for image, label in get_batches_fn(batch_size):
             image = augment_image_batch(image, aug_chance)
             _ = sess.run(train_op, {
@@ -176,19 +182,26 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
                 keep_prob : 0.5,
                 correct_label : label,
             })
+
+        # Validation
+        batch_num = 0
+        mean_mean_iou = 0
+        for val_image, val_label in get_valid_batches_fn(batch_size):    
             sess.run(iou_op, {
-		correct_label: label,
-  	 	input_image: image,
+	        correct_label: val_label,
+      	        input_image: val_image,
 		keep_prob: 1,
             })
             mean_iou_value = sess.run(iou, {
-		correct_label: label,
-  	 	input_image: image,
+		correct_label: val_label,
+  	 	input_image: val_image,
 		keep_prob: 1,
             })
+            mean_mean_iou += mean_iou_value
             batch_num += 1
-            print('Done with batch {}, IOU: {:.2f}'.format(batch_num, 100*mean_iou_value))
-        print('Done with epoch number {}'.format(epoch))
+
+        mean_mean_iou /= batch_num
+        print('Done with epoch number {}, <IoU> = {:.2f}'.format(epoch, 100*mean_mean_iou))
 
 # tests.test_train_nn(train_nn)
 
@@ -210,7 +223,8 @@ def run():
     learning_rate = 1e-4
     weighted_sum = False
     aug_chance = 0.1
-    coord_conv = True
+    coord_conv = False
+    valid_part = 10
 
     tests.test_for_kitti_dataset(data_dir)
 
@@ -222,11 +236,20 @@ def run():
     #  https://www.cityscapes-dataset.com/
 
     with tf.Session() as sess:
-        # Create function to get batches
+        # Create function to get training batches
         get_batches_fn = helper.gen_batch_function(
             os.path.join(data_dir, 'data_road/training'),
-            image_shape
+            image_shape,
+            valid_part,
         )
+
+        # Create function to get validation batches
+        get_valid_batches_fn = helper.gen_batch_function(
+            os.path.join(data_dir, 'data_road/training'),
+            image_shape,
+	    valid_part,
+            valid=True,
+        ) 
 
         # Build NN using load_vgg, layers, and optimize function
         vgg_path = os.path.join(data_dir, 'vgg')  # Path to vgg model
@@ -260,7 +283,9 @@ def run():
         # Train NN using the train_nn function
         train_nn(
             sess,
-            epochs, batch_size, get_batches_fn,
+            epochs, batch_size,
+            get_batches_fn,
+            get_valid_batches_fn,
             train_op, cross_entropy_loss,
             input_tensor, correct_label,
             keep_prob, learning_rate,
@@ -270,7 +295,7 @@ def run():
 
         # Save inference data using helper.save_inference_samples
         dirname = 'e={}_bs={}_l2={}_ws={}_aug={:.2f}_cc={}'.format(epochs, batch_size, True, weighted_sum, aug_chance, coord_conv)
-        dataset = 'tryput'
+        dataset = None #'tryput'
         helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_tensor,
 		 		      dirname, dataset)
 

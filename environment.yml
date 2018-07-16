@@ -14,3 +14,4 @@ dependencies:
     - pip:
         - moviepy
         - tensorflow==1.5
+        - murmurhash3==2.3.5
