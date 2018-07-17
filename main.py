@@ -45,9 +45,6 @@ def load_vgg(sess, vgg_path):
         vgg_layer7_out,
     )
 
-# tests.test_load_vgg(load_vgg, tf)
-
-
 
 def add_stripes(tensor):
     tensor_shape = tf.shape(tensor)
@@ -75,21 +72,28 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes, weighted
     # "This is where all the fun happens"
 
     lambda_ = 1e-3
-
     l2_reg = tf.contrib.layers.l2_regularizer
+
+    init_conv2d = tf.contrib.layers.xavier_initializer_conv2d 
+    init_bias = tf.contrib.layers.xavier_initializer
+
     output = tf.layers.conv2d(vgg_layer7_out,
-			      filters=num_classes,
+                              filters=num_classes,
                               kernel_size=1,
                               padding='SAME',
-                              kernel_regularizer=l2_reg(lambda_))
+                              kernel_regularizer=l2_reg(lambda_),
+                              kernel_initializer=init_conv2d(),
+                              bias_initializer=init_bias())
     if coord_conv:
         output = add_stripes(output)
 
     output = tf.layers.conv2d_transpose(output,
-					filters=vgg_layer4_out.get_shape().as_list()[-1],
+                                        filters=vgg_layer4_out.get_shape().as_list()[-1],
                                         kernel_size=4, strides=(2, 2),
                                         padding='SAME',
-                                        kernel_regularizer=l2_reg(lambda_))
+                                        kernel_regularizer=l2_reg(lambda_),
+                                        kernel_initializer=init_conv2d(),
+                                        bias_initializer=init_bias())
 
     if weighted_sum:
         alpha_1 = tf.Variable(1.0, tf.float32)
@@ -104,10 +108,12 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes, weighted
         output = add_stripes(output)
 
     output = tf.layers.conv2d_transpose(output,
-					filters=vgg_layer3_out.get_shape().as_list()[-1],
+                                        filters=vgg_layer3_out.get_shape().as_list()[-1],
                                         kernel_size=4, strides=(2, 2),
                                         padding='SAME',
-                                        kernel_regularizer=l2_reg(lambda_))
+                                        kernel_regularizer=l2_reg(lambda_),
+                                        kernel_initializer=init_conv2d(),
+                                        bias_initializer=init_bias())
 
     if weighted_sum:
         alpha_2 = tf.Variable(1.0, tf.float32)
@@ -122,13 +128,14 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes, weighted
         output = add_stripes(output)
 
     output = tf.layers.conv2d_transpose(output,
-					filters=num_classes,
+                                        filters=num_classes,
                                         kernel_size=16, strides=(8, 8),
                                         padding='SAME',
-					kernel_regularizer=l2_reg(lambda_))
+					kernel_regularizer=l2_reg(lambda_),
+                                        kernel_initializer=init_conv2d(),
+                                        bias_initializer=init_bias())
     return output
 
-# tests.test_layers(layers)
 
 
 def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
@@ -154,7 +161,6 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
 
     return logits, train_op, cross_entropy_loss
 
-# tests.test_optimize(optimize)
 
 
 def train_nn(sess, epochs, batch_size, get_batches_fn, get_valid_batches_fn, train_op, cross_entropy_loss,
@@ -174,6 +180,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, get_valid_batches_fn, tra
     :param learning_rate: TF Placeholder for learning rate
     """
     for epoch in range(epochs):
+        print('EPOCH {}'.format(epoch))
         # Training
         for image, label in get_batches_fn(batch_size):
             image = augment_image_batch(image, aug_chance)
@@ -181,9 +188,27 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, get_valid_batches_fn, tra
                 input_image : image,
                 keep_prob : 0.5,
                 correct_label : label,
+            }) 
+            loss = sess.run(cross_entropy_loss, {
+                input_image : image,
+                keep_prob : 1,
+                correct_label : label,
             })
+            _ = sess.run(iou_op, {
+                input_image : image,
+                keep_prob : 1,
+                correct_label : label,
+            })
+            miou = sess.run(iou, {
+                input_image : image,
+                keep_prob : 1,
+                correct_label : label,
+            })
+            print('Train batch loss: {:.2f} and <IOU>: {:.2f}'.format(loss, miou))
 
         # Validation
+        if get_valid_batches_fn is None:
+            continue
         batch_num = 0
         mean_mean_iou = 0
         for val_image, val_label in get_valid_batches_fn(batch_size):    
@@ -203,8 +228,6 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, get_valid_batches_fn, tra
         mean_mean_iou /= batch_num
         print('Done with epoch number {}, <IoU> = {:.2f}'.format(epoch, 100*mean_mean_iou))
 
-# tests.test_train_nn(train_nn)
-
 
 
 def mean_iou(ground_truth, prediction, num_classes):
@@ -218,13 +241,13 @@ def run():
     image_shape = (160, 576)
     data_dir = './data'
     runs_dir = './runs'
-    epochs = 15
-    batch_size = 16
+    epochs = 20
+    batch_size = 8
     learning_rate = 1e-4
     weighted_sum = False
-    aug_chance = 0.1
-    coord_conv = False
-    valid_part = 10
+    aug_chance = 0.2
+    coord_conv = True
+    valid_part = 0
 
     tests.test_for_kitti_dataset(data_dir)
 
@@ -244,7 +267,7 @@ def run():
         )
 
         # Create function to get validation batches
-        get_valid_batches_fn = helper.gen_batch_function(
+        get_valid_batches_fn = None if valid_part==0 else helper.gen_batch_function(
             os.path.join(data_dir, 'data_road/training'),
             image_shape,
 	    valid_part,
@@ -295,7 +318,7 @@ def run():
 
         # Save inference data using helper.save_inference_samples
         dirname = 'e={}_bs={}_l2={}_ws={}_aug={:.2f}_cc={}'.format(epochs, batch_size, True, weighted_sum, aug_chance, coord_conv)
-        dataset = None #'tryput'
+        dataset = None#'tryput'
         helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_tensor,
 		 		      dirname, dataset)
 
