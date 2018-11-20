@@ -1,3 +1,9 @@
+'''
+You should not edit project_tests.py as part of your submission.
+
+This file is used for unit testing your work within main.py.
+'''
+
 import sys
 import os
 from copy import deepcopy

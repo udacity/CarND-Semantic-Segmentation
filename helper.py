@@ -1,3 +1,11 @@
+'''
+You should not edit helper.py as part of your submission.
+
+This file is used primarily to download vgg if it has not yet been,
+give you the progress of the download, get batches for your training,
+as well as around generating and saving the image outputs.
+'''
+
 import re
 import random
 import numpy as np
