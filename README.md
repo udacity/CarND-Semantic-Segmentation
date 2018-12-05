@@ -30,6 +30,7 @@ python main.py
 
 #### Example Outputs
 Here are examples of a sufficient vs. insufficient output from a trained network:
+
 Sufficient Result          |  Insufficient Result
 :-------------------------:|:-------------------------:
 ![Sufficient](./examples/sufficient_result.png)  |  ![Insufficient](./examples/insufficient_result.png)
