@@ -1,4 +1,32 @@
 # Semantic Segmentation
+## Approach
+For this project, I largely followed the walkthrough when setting up my code.  The main part of this was setting up the skip layer connections and then just training the network.  For training I tried a few different initialization and learning rates.  I started with a Random Uniform initialization with +/- 0.01 as the upper and lower bounds.  This lead me to a final loss of around 0.03.  Switching to Random Normal initialization with a standard deviation of 0.01 and mean of 0 yielded the best results.
+
+Here are some report outs on the differnet hyperparameters that I tried:
+![](images/loss_b10_e60_RU_LR0001.png)
+![](images/loss_b10_e60_RU_LR00001.png)
+![](images/loss_b10_e60_RU_LR00001.png)
+
+The best network that I trained used the following:
+* Batch Size = 10
+* Epochs = 50
+* Learning Rate = 0.0001
+* Random Uniform Initialization: std = 0.01, mean = 0
+![](images/loss_b10_e50_RN_LR0001.png)
+
+Some good examples from my network demonstrate that it is fairly good at distinguising road surfaces:
+![](images/good_1.png)
+![](images/good_2.png)
+![](images/good_3.png)
+![](images/good_4.png)
+![](images/good_5.png)
+
+There were however still some more complex environments that caused issues for the network:
+![](images/bad_1.png)
+![](images/bad_2.png)
+![](images/bad_3.png)
+
+
 ### Introduction
 In this project, you'll label the pixels of a road in images using a Fully Convolutional Network (FCN).
 
